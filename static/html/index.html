@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation d'une réponse PID</title>
+    <script src="static/js/chart.js"></script> <!-- Link to Chart.js CDN -->
+    <script src="static/js/jquery.js"></script> <!-- Link to jQuery CDN -->
+    <script src="static/js/chartjs-adapter-date-fns.js"></script>
+
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            background: #f0f4f8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .inputs-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 20px;
+            justify-items: center;  
+            align-items: center;    
+        }
+
+        /* Style des inputs */
+        input[type="number"] {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            width: 100%;
+            text-align: center;
+            background-color: #fff;
+            transition: border-color 0.3s ease;
+            margin-left: 10px;
+            margin-right: 10px;
+        }
+
+        input[type="number"]:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+
+        #colorPicker {
+            width: 100px;  
+            height: 40px;  
+        }
+
+        p {
+            text-align: center;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .button-container {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px; 
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .chart-container {
+            width: 1000px; /* 25% plus large */
+            height: 500px; /* 25% plus haut */
+            margin-top: 20px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="navbar"></div>
+
+    <h1>Simulation d'une réponse à un régulateur PID</h1>
+
+    <p> 
+        Cet outil a pour but de simuler une réponse d'un système du premier ordre (régit par une constante de temps Tau et un gain K) 
+        et de comparer les conséquences de chacun des paramètres.
+    </p>
+
+    <div class="inputs-container">
+        <div>
+            <p>Setpoint</p>
+            <input type="number" id="Sp" placeholder="Sp" value="10" />
+        </div>
+        <div>
+            <p>Constante de temps Tau</p>
+            <input type="number" id="Tau" placeholder="Tau" value="1" />
+        </div>
+        <div>
+            <p>Gain K</p>
+            <input type="number" id="K" placeholder="K" value="1" />
+        </div>
+        <div>
+            <p>Coefficient proportionnel</p>
+            <input type="number" id="P" placeholder="P" value="5" />
+        </div>
+        <div>
+            <p>Coefficient intégral</p>
+            <input type="number" id="Ki" placeholder="Ki" value="10" />
+        </div>
+        <div>
+            <p>Coefficient dérivé</p>
+            <input type="number" id="Kd" placeholder="Kd" value="0" />
+        </div>
+        <div>
+            <p>Pas de temps</p>
+            <input type="number" id="dt" placeholder="dt" value="0.001" />
+        </div>
+        <div>
+            <p>Nombre d'itérations</p>
+            <input type="number" id="N" placeholder="N" value="1000" />
+        </div>
+
+        <div>
+            <p>Choisir la couleur du graphe</p>
+            <input type="color" id="colorPicker" value="#ff0000" />
+        </div>
+
+    </div>
+
+    <div class="button-container">
+        <button type="submit" onclick="sendData()">Trace ta réponse simulée</button>
+        <button type="submit" onclick="reset()">Reset le graphe</button>
+    </div>
+
+
+    <div class="chart-container">
+        <canvas id="myChart"></canvas>
+    </div>
+    
+    
+    <script src="/static/js/jquery.js"></script>
+    <script>
+
+        $(function(){
+            $("#navbar").load("nav.html"); 
+        });
+        
+        function getData(){
+            const Sp = parseFloat($('#Sp').val());
+            const Tau = parseFloat($('#Tau').val());
+            const K = parseFloat($('#K').val());
+            const P = parseFloat($('#P').val());
+            const Ki = parseFloat($('#Ki').val());
+            const Kd = parseFloat($('#Kd').val());
+            const dt = parseFloat($('#dt').val());
+            const N = parseFloat($('#N').val());
+
+            return { Sp, Tau, K, P, Ki, Kd, dt, N };
+        }
+
+        async function sendData() {
+            const data = getData();  
+            const color = $('#colorPicker').val();
+            try {
+                const response = await fetch('/sendData', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+
+                if (response.ok) {
+                    const XY = await response.json();
+                    plotGraph(XY.X, XY.Y, color);
+                } else {
+                    console.error('Erreur lors de l\'envoi des données');
+                }
+            } catch (error) {
+                console.error('Erreur de réseau:', error);
+            }
+        }
+
+        let myChart = null;
+
+        function plotGraph(X, Y, color) {
+            const ctx = $('#myChart')[0].getContext('2d');
+            const dataToPlot = X.map((x, i) => ({ x, y: Y[i] }));
+            console.log("color = ", color);
+
+            if (!myChart) {
+                myChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: '',  
+                            data: dataToPlot,
+                            borderColor: color,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderWidth: 1,
+                            fill: false,
+                            pointRadius: 0,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,      
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: { display: true, text: 'X' },
+                                ticks: { callback: function(value) { return value.toFixed(2); } },
+                                min: 0,
+                                max: Math.max(...X),
+                            },
+                            y: { title: { display: true, text: 'Y' } }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false  
+                            }
+                        }
+                    }
+                });
+            } else {
+                
+                myChart.data.datasets.push({
+                    label: '',  
+                    data: dataToPlot,
+                    borderColor: color,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 1,
+                    fill: false,
+                    pointRadius: 0,
+                });
+                myChart.update();
+            }
+        }
+
+        function reset() {
+            myChart.data.datasets = [];
+            myChart.update();
+
+        }
+
+
+    </script>
+
+</body>
+</html>

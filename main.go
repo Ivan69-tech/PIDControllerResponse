@@ -1,55 +1,81 @@
 package main
 
-type PID struct {
-	Kp, Ki, Kd        float64
-	integral          float64
-	previouserror_pid float64
+import (
+	"embed"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"regulation/simulation"
+)
+
+type DataReceived struct {
+	Sp  float64 `json:"Sp"`
+	Tau float64 `json:"Tau"`
+	K   float64 `json:"K"`
+	P   float64 `json:"P"`
+	Ki  float64 `json:"Ki"`
+	Kd  float64 `json:"Kd"`
+	Dt  float64 `json:"dt"`
+	N   float64 `json:"N"`
 }
 
-// NewPID creates a new PID controller with the specified gains
-func NewPID(kp, ki, kd float64) *PID {
-	return &PID{
-		Kp: kp,
-		Ki: ki,
-		Kd: kd,
+func getDataHandler(w http.ResponseWriter, r *http.Request) {
+
+	var data DataReceived
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		http.Error(w, "Erreur lors du décodage de la donnée", http.StatusBadRequest)
+		fmt.Println(err)
+		return
 	}
+
+	fmt.Println("Donnée reçue:", data)
+	T, res := simulation.Simulation(
+		data.Sp,
+		data.Tau,
+		data.K,
+		data.P,
+		data.Ki,
+		data.Kd,
+		data.Dt,
+		data.N)
+
+	response := map[string][]float64{
+		"X": T,
+		"Y": res,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
-// Compute calculates the PID output based on the setpoint and current value
-func (pid *PID) Compute(setpoint, currentValue float64) float64 {
+// func dataHandler(w http.ResponseWriter, r *http.Request) {
+// 	w.Header().Set("Content-Type", "application/json")
 
-	error_pid := setpoint - currentValue
+// 	data := Data{
+// 		Signal: res.Name,
+// 		Values: res.Res,
+// 	}
 
-	proportional := pid.Kp * error_pid
+// 	err := json.NewEncoder(w).Encode(data)
+// 	if err != nil {
+// 		http.Error(w, err.Error(), http.StatusInternalServerError)
+// 	}
+// }
 
-	pid.integral += error_pid
-	integral := pid.Ki * pid.integral
+//go:embed static/html/*.html
+//go:embed static/js/*.js
 
-	derivative := pid.Kd * (error_pid - pid.previouserror_pid)
-	pid.previouserror_pid = error_pid
-
-	output := proportional + integral + derivative
-	return output
-}
+var content embed.FS
 
 func main() {
 
-	QPoc_ref := 0.0
-	Pond := 1e6
-	QPoc := []float64{Simulation(Pond, 0)}
-	Qond := []float64{0}
-	pid := NewPID(0.01, 0.1, 0)
-	T := []float64{0.0}
-	numIterations := 1000
-	dt := 0.001
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+	http.HandleFunc("/sendData", getDataHandler)
+	fs := http.FileServer(http.Dir("./static/html"))
+	http.Handle("/", http.StripPrefix("/", fs))
 
-	for t := 1; t < numIterations; t++ {
-		Qond = append(Qond, pid.Compute(QPoc_ref, QPoc[len(QPoc)-1]))
-		QPoc = append(QPoc, Simulation(Pond, Qond[len(Qond)-1]))
-		newT := T[len(T)-1] + dt
-		T = append(T, newT)
-	}
-
-	Line(T, Qond, "Qond.png")
-	Line(T, QPoc, "QPoc.png")
+	log.Println("Serveur démarré sur http://localhost:8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }

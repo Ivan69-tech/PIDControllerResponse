@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 )
 
@@ -42,14 +41,14 @@ func (sys *ElectricalSystem) ComputeReactivePowerSys(I float64) float64 {
 	Q_L := math.Pow(I, 2) * X_L
 	Q_C := math.Pow(I, 2) * X_C
 
-	Q := Q_L - Q_C
+	Q := Q_C - Q_L
 
 	return Q
 }
 
 func (sys *ElectricalSystem) ComputeS(Pond, Qond float64) float64 {
 	S := math.Sqrt(math.Pow(Pond, 2) + math.Pow(Qond, 2))
-	fmt.Println("S =", S)
+	//fmt.Println("S =", S)
 	return S
 
 }
@@ -60,7 +59,7 @@ func (sys *ElectricalSystem) ComputeQPoc(Pond, Qond float64) float64 {
 	I := S / sys.UPoc
 	Qsys := sys.ComputeReactivePowerSys(I)
 	Qpoc := Qond + Qsys
-	fmt.Println("QPoc = ", Qpoc)
+	//fmt.Println("QPoc = ", Qpoc)
 	return Qpoc
 
 }
