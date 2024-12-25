@@ -50,20 +50,6 @@ func getDataHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// func dataHandler(w http.ResponseWriter, r *http.Request) {
-// 	w.Header().Set("Content-Type", "application/json")
-
-// 	data := Data{
-// 		Signal: res.Name,
-// 		Values: res.Res,
-// 	}
-
-// 	err := json.NewEncoder(w).Encode(data)
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 	}
-// }
-
 //go:embed static/html/*.html
 //go:embed static/js/*.js
 
@@ -77,5 +63,5 @@ func main() {
 	http.Handle("/", http.StripPrefix("/", fs))
 
 	log.Println("Serveur démarré sur http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":2222", nil))
 }
